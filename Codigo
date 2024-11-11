@@ -1,0 +1,59 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal
+from scipy.fft import fft, fftshift
+import soundfile as sf
+
+# Cargar el audio
+archivo_audio = 'InASentimentalMood.wav'
+y, fm = sf.read(archivo_audio)
+y = y / (np.max(np.abs(y)))  # Normalización de amplitud
+
+# Frecuencias de corte para los filtros
+frecuencias_corte = [500, 1000, 2000]
+
+# Aplicación de los filtros FIR
+for fc in frecuencias_corte:
+    # Diseño del filtro FIR mediante ventaneo
+    numtaps = 101  # Número de coeficientes del filtro
+    hlp = signal.firwin(numtaps, cutoff=fc, fs=fm)
+    
+    # Aplicación del filtro usando convolución
+    y_filtrado = np.convolve(y, hlp, mode='same')
+    
+    # Visualización de la respuesta en frecuencia del filtro
+    H = fftshift(np.abs(fft(hlp, 1024)))
+    f = np.linspace(-fm/2, fm/2, len(H))
+    plt.figure()
+    plt.plot(f, H)
+    plt.title(f'Respuesta en frecuencia del filtro FIR (fc = {fc} Hz)')
+    plt.xlabel('Frecuencia [Hz]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+    
+    # Espectrograma del audio filtrado
+    ventana = 2048
+    overlap = ventana // 2
+    plt.figure()
+    plt.specgram(y_filtrado, NFFT=ventana, Fs=fm, noverlap=overlap, scale='dB')
+    plt.ylim([0, 2000])
+    plt.title(f'Espectrograma del Audio Filtrado (fc = {fc} Hz)')
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Frecuencia [Hz]')
+    plt.colorbar(label='Amplitud [dB]')
+    plt.show()
+    
+    # Comparación en el dominio temporal para una nota seleccionada
+    T1_nota, T2_nota = 2.48, 2.52  # Intervalo de la nota
+    index_nota = np.logical_and(np.arange(len(y)) / fm > T1_nota, np.arange(len(y)) / fm < T2_nota)
+    
+    plt.figure()
+    plt.plot(np.arange(len(y))[index_nota] / fm, y[index_nota], label='Original')
+    plt.plot(np.arange(len(y))[index_nota] / fm, y_filtrado[index_nota], label=f'Filtrado fc = {fc} Hz')
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.title(f'Comparación Temporal de Nota (fc = {fc} Hz)')
+    plt.legend()
+    plt.grid()
+    plt.show()
