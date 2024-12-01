@@ -98,11 +98,14 @@ plt.ylabel('Amplitud')
 plt.grid()
 plt.show()
 
-# Espectrograma
-frequencies, times, Sxx = spectrogram(audio, fs)
+# Espectrograma con ajustes mejorados
+nperseg = 2048  # Tamaño de la ventana (mayor para mejor resolución en frecuencia)
+noverlap = nperseg // 2  # Solapamiento de ventanas
+frequencies, times, Sxx = spectrogram(audio, fs, nperseg=nperseg, noverlap=noverlap)
+
 plt.figure(figsize=(10, 6))
 plt.pcolormesh(times, frequencies, 10 * np.log10(Sxx), shading='gouraud')
-plt.title('Espectrograma de la Señal')
+plt.title('Espectrograma de la Señal (Resolución Mejorada)')
 plt.ylabel('Frecuencia [Hz]')
 plt.xlabel('Tiempo [s]')
 plt.colorbar(label='Amplitud [dB]')
@@ -278,9 +281,11 @@ def plot_fft(signal, fs, title):
     plt.grid()
     plt.show()
 
-# Función para graficar el espectrograma
+# Función para graficar el espectrograma con mayor resolución
 def plot_spectrogram(signal, fs, title):
-    frequencies, times, Sxx = spectrogram(signal, fs)
+    nperseg = 2048  # Tamaño de la ventana
+    noverlap = nperseg // 2  # Solapamiento
+    frequencies, times, Sxx = spectrogram(signal, fs, nperseg=nperseg, noverlap=noverlap)
     plt.figure(figsize=(10, 6))
     plt.pcolormesh(times, frequencies, 10 * np.log10(Sxx), shading='gouraud')
     plt.title(title)
