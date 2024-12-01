@@ -66,3 +66,401 @@ for fc in frecuencias_corte:
     plt.tight_layout()
     plt.savefig(f'Comparacion_Temporal_{fc}Hz.png', dpi=300)
     plt.close()
+
+
+
+
+
+-----------------------------------# Ejercicio 7 -------------------------------------------------------------------------------
+
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+from scipy.signal import spectrogram
+
+# Cargar el archivo de audio
+fs, audio = wavfile.read('notas_musicales.wav')
+
+# Si la señal tiene dos canales, convertirla a mono
+if audio.ndim > 1:
+    audio = np.mean(audio, axis=1)
+
+# Graficar la señal en el dominio temporal
+plt.figure(figsize=(10, 4))
+plt.plot(np.linspace(0, len(audio) / fs, len(audio)), audio)
+plt.title('Señal en el Dominio Temporal')
+plt.xlabel('Tiempo [s]')
+plt.ylabel('Amplitud')
+plt.grid()
+plt.show()
+
+# Espectrograma
+frequencies, times, Sxx = spectrogram(audio, fs)
+plt.figure(figsize=(10, 6))
+plt.pcolormesh(times, frequencies, 10 * np.log10(Sxx), shading='gouraud')
+plt.title('Espectrograma de la Señal')
+plt.ylabel('Frecuencia [Hz]')
+plt.xlabel('Tiempo [s]')
+plt.colorbar(label='Amplitud [dB]')
+plt.ylim(0, 4000)  # Limitar el rango a frecuencias relevantes
+plt.show()
+
+# Función para analizar FFT
+def analyze_fft(segment, fs):
+    n = len(segment)
+    freq = np.fft.rfftfreq(n, 1/fs)
+    fft_values = np.fft.rfft(segment)
+    magnitude = np.abs(fft_values)
+    fundamental_freq = freq[np.argmax(magnitude)]
+    return fundamental_freq, freq, magnitude
+
+# Definir los intervalos de las dos notas
+intervals = [(0, 0.5), (1.5, 2.0)]  # Intervalos en segundos
+note_signals = []
+
+# Extraer los segmentos correspondientes a cada nota
+for start, end in intervals:
+    start_idx = int(start * fs)
+    end_idx = int(end * fs)
+    note_signals.append(audio[start_idx:end_idx])
+
+# Analizar cada nota
+for i, note in enumerate(note_signals):
+    fundamental_freq, freq, magnitude = analyze_fft(note, fs)
+    
+    # Graficar señal temporal
+    plt.figure(figsize=(10, 4))
+    plt.plot(np.linspace(0, len(note) / fs, len(note)), note)
+    plt.title(f'Nota {i + 1}: Dominio Temporal')
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+    
+    # Graficar FFT
+    plt.figure(figsize=(10, 4))
+    plt.plot(freq, magnitude)
+    plt.title(f'Nota {i + 1}: Espectro de Frecuencia')
+    plt.xlabel('Frecuencia [Hz]')
+    plt.ylabel('Magnitud')
+    plt.grid()
+    plt.show()
+    
+    print(f'Nota {i + 1}: Frecuencia Fundamental = {fundamental_freq:.2f} Hz')
+
+
+
+
+-----------------------------------# Ejercicio 8 ----------------------------------------------------------------------------------
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+import librosa
+import soundfile as sf
+
+# Cargar el archivo de audio
+fs, audio = wavfile.read('notas_musicales.wav')
+
+# Si la señal tiene dos canales, convertirla a mono
+if audio.ndim > 1:
+    audio = np.mean(audio, axis=1)
+
+# Segmentar las notas de acuerdo a los intervalos identificados previamente
+intervals = [(0, 0.5), (1.5, 2.0)]  # Intervalos en segundos
+note_signals = []
+for start, end in intervals:
+    start_idx = int(start * fs)
+    end_idx = int(end * fs)
+    note_signals.append(audio[start_idx:end_idx])
+
+# Función para graficar señal temporal y espectral
+def plot_note(signal, fs, title):
+    plt.figure(figsize=(10, 4))
+    plt.plot(np.linspace(0, len(signal) / fs, len(signal)), signal)
+    plt.title(f'{title}: Dominio Temporal')
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+
+    fft_values = np.fft.rfft(signal)
+    freq = np.fft.rfftfreq(len(signal), 1 / fs)
+    magnitude = np.abs(fft_values)
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(freq, magnitude)
+    plt.title(f'{title}: Espectro de Frecuencia')
+    plt.xlabel('Frecuencia [Hz]')
+    plt.ylabel('Magnitud')
+    plt.grid()
+    plt.show()
+
+    # Determinar la frecuencia fundamental
+    fundamental_freq = freq[np.argmax(magnitude)]
+    return fundamental_freq
+
+# Procesar cada nota y realizar el cambio de pitch
+for i, note in enumerate(note_signals):
+    # Cambiar el pitch un semitono hacia arriba
+    note_shifted = librosa.effects.pitch_shift(note.astype(np.float32), sr=fs, n_steps=1)
+
+    # Graficar la nota original
+    plot_note(note, fs, f'Nota {i + 1} Original')
+
+    # Graficar la nota con pitch modificado y obtener su frecuencia fundamental
+    modified_fundamental_freq = plot_note(note_shifted, fs, f'Nota {i + 1} Modificada (Pitch +1 Semitono)')
+
+    # Imprimir la frecuencia fundamental de la nota modificada
+    print(f'Nota {i + 1} Modificada: Frecuencia Fundamental = {modified_fundamental_freq:.2f} Hz')
+
+    # Guardar el audio modificado con soundfile
+    sf.write(f'nota_{i + 1}_shifted.wav', note_shifted, fs)
+
+
+
+
+-----------------------------------# Ejercicio 9 -------------------------------------------------------------------------------------
+
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+from scipy.signal import resample, spectrogram
+import soundfile as sf
+
+# Cargar el archivo de audio
+fs, audio = wavfile.read('InASentimentalMood.wav')
+
+# Si la señal tiene dos canales, convertirla a mono
+if audio.ndim > 1:
+    audio = np.mean(audio, axis=1)
+
+# Intervalos clave para analizar (en segundos)
+intervals = [(1, 2)]  # Intervalo seleccionado para analizar detalles
+
+# Función para graficar señal en el dominio temporal
+def plot_time(signal, fs, title, start, end):
+    time_axis = np.linspace(start, end, len(signal))
+    plt.figure(figsize=(10, 4))
+    plt.plot(time_axis, signal)
+    plt.title(title)
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+
+# Función para graficar FFT con un rango de 0 a 5000 Hz
+def plot_fft(signal, fs, title):
+    n = len(signal)
+    freq = np.fft.rfftfreq(n, 1 / fs)
+    fft_values = np.fft.rfft(signal)
+    magnitude = np.abs(fft_values)
+
+    # Limitar el rango de frecuencias a 5000 Hz
+    freq_limit = freq <= 5000
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(freq[freq_limit], magnitude[freq_limit])
+    plt.title(title)
+    plt.xlabel('Frecuencia [Hz]')
+    plt.ylabel('Magnitud')
+    plt.grid()
+    plt.show()
+
+# Función para graficar el espectrograma
+def plot_spectrogram(signal, fs, title):
+    frequencies, times, Sxx = spectrogram(signal, fs)
+    plt.figure(figsize=(10, 6))
+    plt.pcolormesh(times, frequencies, 10 * np.log10(Sxx), shading='gouraud')
+    plt.title(title)
+    plt.ylabel('Frecuencia [Hz]')
+    plt.xlabel('Tiempo [s]')
+    plt.colorbar(label='Amplitud [dB]')
+    plt.ylim(0, 5000)  # Limitar a frecuencias hasta 5000 Hz
+    plt.show()
+
+# Aumentar velocidad por un factor de 1.25
+audio_fast = resample(audio, int(len(audio) / 1.25))
+sf.write('InASentimentalMood_Fast.wav', audio_fast, fs)
+
+# Disminuir velocidad por un factor de 0.75
+audio_slow = resample(audio, int(len(audio) / 0.75))
+sf.write('InASentimentalMood_Slow.wav', audio_slow, fs)
+
+# Graficar espectrogramas completos
+plot_spectrogram(audio_fast, fs, 'Espectrograma Completo Aumentado (1.25x)')
+plot_spectrogram(audio_slow, fs, 'Espectrograma Completo Disminuido (0.75x)')
+
+# Analizar intervalos seleccionados después de cambios de velocidad
+for start, end in intervals:
+    # Aumentar velocidad
+    start_fast = start / 1.25
+    end_fast = end / 1.25
+    start_idx_fast = int(start_fast * fs)
+    end_idx_fast = int(end_fast * fs)
+    segment_fast = audio_fast[start_idx_fast:end_idx_fast]
+
+    plot_time(segment_fast, fs, f'Segmento Aumentado (1.25x): {start_fast:.2f}s - {end_fast:.2f}s', start_fast, end_fast)
+    plot_fft(segment_fast, fs, f'Segmento FFT Aumentado (1.25x)')
+    plot_spectrogram(segment_fast, fs, f'Espectrograma Segmento Aumentado (1.25x)')
+
+    # Disminuir velocidad
+    start_slow = start / 0.75
+    end_slow = end / 0.75
+    start_idx_slow = int(start_slow * fs)
+    end_idx_slow = int(end_slow * fs)
+    segment_slow = audio_slow[start_idx_slow:end_idx_slow]
+
+    plot_time(segment_slow, fs, f'Segmento Disminuido (0.75x): {start_slow:.2f}s - {end_slow:.2f}s', start_slow, end_slow)
+    plot_fft(segment_slow, fs, f'Segmento FFT Disminuido (0.75x)')
+    plot_spectrogram(segment_slow, fs, f'Espectrograma Segmento Disminuido (0.75x)')
+
+
+
+
+
+-----------------------------------# Ejercicio 10 -----------------------------------------------------------------------------
+
+
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.pyplot as plt
+import librosa
+import librosa.display
+import soundfile as sf
+
+# Cargar el archivo de audio
+audio_path = 'InASentimentalMood.wav'
+audio, fs = librosa.load(audio_path, sr=None)
+
+# Intervalos clave para analizar (en segundos)
+intervals = [(1, 2)]  # Intervalo seleccionado para analizar detalles
+
+# Función para graficar señal en el dominio temporal
+def plot_time(signal, fs, title, start, end):
+    time_axis = np.linspace(start, end, len(signal))
+    plt.figure(figsize=(10, 4))
+    plt.plot(time_axis, signal)
+    plt.title(title)
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+
+# Función para graficar espectrograma
+def plot_spectrogram(signal, fs, title):
+    stft = librosa.stft(signal)
+    spectrogram = librosa.amplitude_to_db(np.abs(stft), ref=np.max)
+    plt.figure(figsize=(10, 4))
+    librosa.display.specshow(spectrogram, sr=fs, x_axis='time', y_axis='hz', cmap='magma')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title(title)
+    plt.show()
+
+# Aumentar velocidad utilizando phase_vocoder
+rate_fast = 1.25
+stft_fast = librosa.stft(audio)
+audio_fast = librosa.istft(librosa.phase_vocoder(stft_fast, rate=rate_fast))
+sf.write('InASentimentalMood_PhaseVocoder_Fast.wav', audio_fast, fs)
+
+# Disminuir velocidad utilizando phase_vocoder
+rate_slow = 0.75
+stft_slow = librosa.stft(audio)
+audio_slow = librosa.istft(librosa.phase_vocoder(stft_slow, rate=rate_slow))
+sf.write('InASentimentalMood_PhaseVocoder_Slow.wav', audio_slow, fs)
+
+# Graficar señal completa en el dominio temporal (modificada)
+plot_time(audio_fast, fs, 'Señal Completa Aumentada con Phase Vocoder (1.25x)', 0, len(audio_fast) / fs)
+plot_time(audio_slow, fs, 'Señal Completa Disminuida con Phase Vocoder (0.75x)', 0, len(audio_slow) / fs)
+
+# Analizar intervalos seleccionados después de cambios de velocidad
+for start, end in intervals:
+    # Aumentar velocidad: ajustar los intervalos proporcionalmente
+    start_fast = start / 1.25
+    end_fast = end / 1.25
+    start_idx_fast = int(start_fast * fs)
+    end_idx_fast = int(end_fast * fs)
+    segment_fast = audio_fast[start_idx_fast:end_idx_fast]
+
+    plot_time(segment_fast, fs, f'Segmento Aumentado con Phase Vocoder (1.25x): {start_fast:.2f}s - {end_fast:.2f}s', start_fast, end_fast)
+    plot_spectrogram(segment_fast, fs, f'Espectrograma Segmento Aumentado con Phase Vocoder (1.25x)')
+
+    # Disminuir velocidad: ajustar los intervalos proporcionalmente
+    start_slow = start / 0.75
+    end_slow = end / 0.75
+    start_idx_slow = int(start_slow * fs)
+    end_idx_slow = int(end_slow * fs)
+    segment_slow = audio_slow[start_idx_slow:end_idx_slow]
+
+    plot_time(segment_slow, fs, f'Segmento Disminuido con Phase Vocoder (0.75x): {start_slow:.2f}s - {end_slow:.2f}s', start_slow, end_slow)
+    plot_spectrogram(segment_slow, fs, f'Espectrograma Segmento Disminuido con Phase Vocoder (0.75x)')
+
+
+
+
+
+
+-----------------------------------# Ejercicio 11 ---------------------------------------------------------------------------------
+
+
+
+
+
+
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+import numpy as np
+import soundfile as sf  # Para guardar archivos de audio
+
+# Cargar el archivo de audio
+audio_path = 'InASentimentalMood.wav'
+y, sr = librosa.load(audio_path, sr=None)
+
+# Separar las componentes armónicas y percusivas
+y_harmonic, y_percussive = librosa.effects.hpss(y)
+
+# Graficar las señales separadas en el dominio temporal
+def plot_time(signal, sr, title):
+    plt.figure(figsize=(10, 4))
+    librosa.display.waveshow(signal, sr=sr)
+    plt.title(title)
+    plt.xlabel('Tiempo [s]')
+    plt.ylabel('Amplitud')
+    plt.grid()
+    plt.show()
+
+plot_time(y_harmonic, sr, 'Componente Armónica')
+plot_time(y_percussive, sr, 'Componente Percusiva')
+
+# Graficar los espectrogramas
+def plot_spectrogram(signal, sr, title):
+    D = librosa.amplitude_to_db(np.abs(librosa.stft(signal)), ref=np.max)
+    plt.figure(figsize=(10, 4))
+    librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='hz')
+    plt.title(title)
+    plt.colorbar(format='%+2.0f dB')
+    plt.show()
+
+plot_spectrogram(y_harmonic, sr, 'Espectrograma de la Componente Armónica')
+plot_spectrogram(y_percussive, sr, 'Espectrograma de la Componente Percusiva')
+
+# Guardar las señales separadas
+sf.write('InASentimentalMood_Harmonic.wav', y_harmonic, sr)
+sf.write('InASentimentalMood_Percussive.wav', y_percussive, sr)
